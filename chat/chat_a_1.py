@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
 import sys 
 sys.path.insert(0, '../proto')
+sys.path.insert(0, '../game')
+sys.path.insert(0, '../game')
 
 #tcp packet for the char
-import tcp_packet_pb2
-
-import socket
 from threading import Thread
+from client import GameClient
+import tcp_packet_pb2
+import socket
 import time
 import tkinter as tk
 import tkinter.messagebox as tkMessageBox
+
+import select
+import sys
+from player import Player
+from bullet import Bullet
+from map import Map
+import pygame
+import json
+import random
 
 # def show_options():
 
@@ -91,6 +102,17 @@ class listenThread(Thread):
 						self.running = False
 						print("--")
 
+class gameThread(Thread):
+	def __init__(self): 
+		Thread.__init__(self) 
+
+	def run(self):
+		g = GameClient()
+		g.run()
+
+
+
+
 def Connect(s, player_name, lobby_id):
 	print("---connecting---")
 	# initialization of the request connect packet
@@ -153,7 +175,7 @@ def msg_checker(event=None):
 	
 	listen.waiting = True
 
-	if(sm[0] == "/connect"):
+	if(sm[0] == "////connect"):
 		if(len(sm) == 3):
 			Connect(s, sm[1], sm[2])
 
@@ -166,17 +188,17 @@ def msg_checker(event=None):
 			msg_list.insert(tk.END, "|Error usage of")
 			msg_list.insert(tk.END, "/connect <name> <lobby_id>")
 
-	elif (sm[0] == "/create"):
+	elif (sm[0] == "////create"):
 		if(len(sm) == 2):
 			Create_Lobby(s, sm[1])
 		else: 
 			msg_list.insert(tk.END, "|Error usage of")
 			msg_list.insert(tk.END, "/create <max_player_number>")
 
-	elif (sm[0] == "/players"):
+	elif (sm[0] == "////players"):
 		PlayerList(s)
 
-	elif (sm[0] == "/disconnect"):
+	elif (sm[0] == "////disconnect"):
 		Disconnect(s, p)
 		s.close() 
 		# try:
@@ -190,12 +212,11 @@ def msg_checker(event=None):
 		# 	sys.exit()
 		listen.waiting = False
 	
-	elif (sm[0] == "/create"):
+	elif (sm[0] == "////create"):
 		Create_Lobby(s)
+	elif (sm[0] == "////create"):
+		Chat(s, p, m)
 
-	elif ("/" in sm[0]):
-		msg_list.insert(tk.END, "|Error no command found")
-	
 	else: #Chat Packets
 		Chat(s, p, m)
 
@@ -206,22 +227,64 @@ def msg_checker(event=None):
 def closing(event=None):
 	"""This function is to be called when the window is closed."""
 	listen.running = False
-	msg.set("/disconnect")	
+	msg.set("////nope")
+	msg_checker()	
 	main_window.quit()
 
 def show_game_help():
-	opt = "this is the game help?"
-	tkMessageBox.askquestion("Game help", opt)
+	opt = "Move - Arrow Keys                            Fire - Space"
+	tkMessageBox.showinfo("Game help", opt)
+
+def create_game():
+	msg.set("////create 4\n")
+	msg_checker()
+	
+	p_name.pack()
+	l_id.pack()
+
+	enter_button.pack()
+	#WAITING
+
+
+def join_game():
+	p_name.pack()
+	l_id.pack()
+
+	enter_button.pack()
+
+
+
+def enter():
+	command = "////connect " + player_name.get() +" " + lobby_id.get()
+	msg.set(command)
+	msg_checker()
+
+	start_button.pack_forget()
+	join_button.pack_forget()
+	enter_button.pack_forget()
+	p_name.pack_forget()
+	l_id.pack_forget()
+
+	#WAITING
+	#dapat threadsss to
+	g = gameThread()
+	g.start()
+
+	create_buttons()
+	
+
+def create_buttons():
+	start_button.pack()
+	join_button.pack()
+	
 
 #initialization of the tkinter
 main_window = tk.Tk()
-main_window.title("FCJ: Ang Prbonsyano")
+main_window.title("FCJ: Ang Probinsyano")
 
 #frames are container of the widgets
-chat_frame = tk.Frame(main_window, bg="blue", height=750, width=300)
-
-game_frame = tk.Frame(main_window, bg="brown", height=750, width=750)
-
+chat_frame = tk.Frame(main_window, bg="blue", height=500, width=300)
+game_frame = tk.Frame(main_window, bg="brown", height=500, width=750)
 msgs_frame = tk.Frame(chat_frame, bg="blue")
 
 msg = tk.StringVar()
@@ -231,16 +294,30 @@ msg.set("Type your messages here.")
 # scrollbar = tk.Scrollbar(msgs_frame) 
 msg_list = tk.Listbox(msgs_frame, height=30, width=30)
 # msg_list = tk.Listbox(msgs_frame, height=30, width=30,yscrollcommand=scrollbar.set)
+TYPE=0
+player_name = tk.StringVar()
+player_name.set("Enter Player Name")
 
-chat_help_text = tk.Text(msgs_frame, bg="cyan")
-opt = "\nCHAT OPTIONS\n-create a lobby\n /create <max_no_of_players>\n-connect to a lobby\n /connect <player_name> <lobby_id>\n-show players in the lobby\n /players\n-disconnect from the lobby\n /disconnect"
-chat_help_text.insert(tk.INSERT, opt)
-chat_help_text.config(state=tk.DISABLED) 
-chat_help_text.tag_add("h", "1.0", "1.12")
-chat_help_text.tag_config("h", background="black", foreground="cyan")
+lobby_id = tk.StringVar()
+lobby_id.set("Enter Lobby ID")
+
+enter_button= tk.Button(game_frame, text="ENTER", command =enter)
+start_button = tk.Button(game_frame, text="START A GAME", command=create_game)
+join_button = tk.Button(game_frame, text="JOIN GAME", command=join_game)
+
+p_name = tk.Entry(game_frame, textvariable=player_name)
+l_id = tk.Entry(game_frame, textvariable=lobby_id)
+
+create_buttons()
+# chat_help_text = tk.Text(msgs_frame, bg="cyan")
+# opt = "\nCHAT OPTIONS\n-create a lobby\n /create <max_no_of_players>\n-connect to a lobby\n /connect <player_name> <lobby_id>\n-show players in the lobby\n /players\n-disconnect from the lobby\n /disconnect"
+# chat_help_text.insert(tk.INSERT, opt)
+# chat_help_text.config(state=tk.DISABLED) 
+# chat_help_text.tag_add("h", "1.0", "1.12")
+# chat_help_text.tag_config("h", background="black", foreground="cyan")
 
 
-game_help_b = tk.Button(chat_frame, text="GAME HELP", command=show_game_help)
+game_help_b = tk.Button(msgs_frame, text="GAME HELP", command=show_game_help)
 # chat_option = tk.Text(msgs_frame, bg="cyan", height=10, width=40)
 
 msg_field = tk.Entry(msgs_frame, textvariable=msg)
@@ -252,8 +329,8 @@ msg_field.bind("<Return>", msg_checker)
 msg_list.pack()
 msg_list.pack()
 msg_field.pack()
-chat_help_text.pack()
-# game_help_b.pack()
+# chat_help_text.pack()
+game_help_b.pack()
 # chat_option.pack()
 
 msgs_frame.place(bordermode=tk.OUTSIDE, height=700, width=300)
