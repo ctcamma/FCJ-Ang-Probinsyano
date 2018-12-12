@@ -276,7 +276,7 @@ def enter():
 def create_buttons():
 	start_button.pack()
 	join_button.pack()
-	
+
 
 #initialization of the tkinter
 main_window = tk.Tk()
@@ -292,7 +292,7 @@ msg.set("Type your messages here.")
 
 #widget - string field for the messages
 # scrollbar = tk.Scrollbar(msgs_frame) 
-msg_list = tk.Listbox(msgs_frame, height=30, width=30)
+msg_list = tk.Listbox(msgs_frame, height=25, width=30)
 # msg_list = tk.Listbox(msgs_frame, height=30, width=30,yscrollcommand=scrollbar.set)
 TYPE=0
 player_name = tk.StringVar()
